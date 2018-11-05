@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-05T15:58:37+05:30
+ * @Last modified time: 2018-11-05T20:24:32+05:30
  */
 
  #include <sys/types.h>
@@ -27,19 +27,20 @@
 //Time check
 // int alarm_stop = FALSE;
 bool WITHIN_TIME = true;
-unsigned int NThreads = 100;
-unsigned int alarm_period = 10;
+unsigned int NThreads = 800;
+unsigned int alarm_period = 100;
 int count =0;
 int key;
 int commandChoice;
-bool connectChoice = false;
+//bool connectChoice = false;
+
 
 
  // Global vars for connection related things
- int sockfd;
- bool activeConn; /* Needed to check whether client has any active connection or not*/
- struct sockaddr_in servaddr; /* structure where all connection related things are stored*/
-
+ int *sockfd;
+ // bool activeConn; /* Needed to check whether client has any active connection or not*/
+ struct sockaddr_in *servaddr; /* structure where all connection related things are stored*/
+ bool *activeConn;
 
 // const char *command[5];
 // command[0] = "connect 127.0.0.1 8000";
@@ -52,21 +53,22 @@ int get_random() {
     return rand() % COMMAND_CHOICES;
 }
 
-char * createCommand(void)
+char * createCommand(int *connectDuration)
 {
   int choice;
   char *command = (char *)malloc(50*sizeof(char));
 
   int commandChoice = get_random()+1;
-  while( !connectChoice && commandChoice == 6)
+  if(*connectDuration==-1 && commandChoice == 1)
+      *connectDuration = 0;
+  while( commandChoice == 6 && *connectDuration < 500)
       commandChoice = get_random()+1;
 
-  while( connectChoice && commandChoice == 1)
+  while( commandChoice == 1 && *connectDuration < 500 && *connectDuration!=0)
         commandChoice = get_random()+1;
   switch(commandChoice)
   {
-      case 1 :  sprintf(command,"connect 127.0.0.1 3000");
-                connectChoice = true;
+      case 1 :  sprintf(command,"connect 10.42.0.21 3000");
                 break;
 
       case 2 :  choice = randomKeyChoices();
@@ -86,7 +88,7 @@ char * createCommand(void)
                 break;
 
       case 6 :  sprintf(command,"disconnect",choice);
-                connectChoice = false;
+                *connectDuration = -1;
                 break;
   }
 
@@ -102,6 +104,8 @@ char * createCommand(void)
   //     i = myRandom (-1);
   // }
   // printf ("Final  = %3d\n", i);
+  if(*connectDuration!=-1)
+      *connectDuration +=1;
   return command;
 }
 
@@ -177,7 +181,7 @@ void on_alarm(int signal) {
  char **tokenize(char *line);
  ////////////////////////////////
 
- void parser(char **tokens);
+ void parser(char **tokens,int thread_id);
  void lineByline(FILE * file);
  char * readline(FILE *fp, char *buffer);
 
@@ -188,9 +192,13 @@ void on_alarm(int signal) {
       my_init();
       key = myRandom(MAX_KEYS_ALLOWED);
       commandChoice = myRandom(COMMAND_CHOICES);
-
+      activeConn = (bool *)malloc((NThreads+1)*sizeof(bool));
+      // activeConn[0] = false;
+      // printf("%d\n",activeConn[0]);
+      sockfd = (int *)malloc((NThreads+1)*sizeof(int));
+      servaddr = (struct sockaddr_in *)malloc((NThreads+1)*sizeof(struct sockaddr_in));
       // whether the client have an active connection or not
-      bool activeConn = false;
+      //bool activeConn = false;
 
       int i;
       signal(SIGPIPE, SIG_IGN);
@@ -204,20 +212,20 @@ void on_alarm(int signal) {
       for(i = 0 ; i < NThreads ; i++)
       {
           sender_thread_id[i] = i+1;
+          activeConn[i] = false;
       }
+      activeConn[i] = false;
       for(i = 0 ; i < NThreads ; i++)
       {
           pthread_create(&sender_th[i], NULL, sender, (void *)&sender_thread_id[i]);
       }
 
       pause();
-
-      // so that all threads are joined that's sleep pf 1 sec
-      sleep(2);
       printf("count of threads exit : %d\nDone\n",count);
       for(i=0; i < NThreads ; i++){
           pthread_join(sender_th[i],NULL);
       }
+      free(activeConn);
       return 0;
   }
 // //////////////////////////////////////
@@ -340,8 +348,10 @@ void on_alarm(int signal) {
    int thread_id = *((int *)ptr);
    printf("Thread comes to play id: %d\n",thread_id);
    char* command;
+   int *connectDuration = (int *)malloc(sizeof(int));
+   *connectDuration = -1;
    while(WITHIN_TIME){
-     command = createCommand();
+     command = createCommand(connectDuration);
      printf("Command : %s\n",command);
 
      char  *line = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
@@ -355,7 +365,7 @@ void on_alarm(int signal) {
      //fgets(line,MAX_INPUT_SIZE,stdin);
      line[strlen(line)] = '\n'; //terminate with new line
      tokens = tokenize(line);
-     parser(tokens);
+     parser(tokens,thread_id);
      int i;
      //Freeing up the acquired space by the tokens
      for(i=0;tokens[i]!=NULL;i++){
@@ -411,7 +421,7 @@ void on_alarm(int signal) {
  }
 
  /**************** Parsing the commands ***********/
- void parser(char **tokens){
+ void parser(char **tokens,int thread_id){
    // char *sendline =(char*)malloc(MAX_INPUT_SIZE*sizeof(char));
    // char *recvline =(char*)malloc(MAX_INPUT_SIZE*sizeof(char));
    char sendline[MAX_INPUT_SIZE];
@@ -429,7 +439,7 @@ void on_alarm(int signal) {
    /// All the functions are going to be written here
    if(strncmp(tokens[0],"connect",7)==0)
    {
-       if(!activeConn)
+       if(!activeConn[thread_id])
        {
            char address[1024];
            char portStr[1024];
@@ -439,20 +449,20 @@ void on_alarm(int signal) {
            int port;
            sscanf(portStr, "%d", &port);
 
-           sockfd=socket(AF_INET,SOCK_STREAM,0);
-           bzero(&servaddr,sizeof servaddr);
+           sockfd[thread_id]=socket(AF_INET,SOCK_STREAM,0);
+           bzero(&servaddr[thread_id],sizeof servaddr[thread_id]);
 
-           servaddr.sin_family=AF_INET;
-           servaddr.sin_port=htons(port);
+           servaddr[thread_id].sin_family=AF_INET;
+           servaddr[thread_id].sin_port=htons(port);
 
-           inet_pton(AF_INET,address,&(servaddr.sin_addr));
+           inet_pton(AF_INET,address,&(servaddr[thread_id].sin_addr));
 
-           if(connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr))<0)
+           if(connect(sockfd[thread_id],(struct sockaddr *)&servaddr[thread_id],sizeof(servaddr[thread_id]))<0)
            {
                printf("\nConnection Failed \n");
            }
            else{
-               activeConn = true;
+               activeConn[thread_id] = true;
                printf("ok Connection made\n");
            }
        }
@@ -463,13 +473,13 @@ void on_alarm(int signal) {
    }
    else if(strncmp(tokens[0],"disconnect",10)==0)
    {
-       if(activeConn)
+       if(activeConn[thread_id])
        {
            strcpy(sendline,"bye");
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
-           activeConn = false;
+           activeConn[thread_id] = false;
        }
        else
        {
@@ -478,16 +488,16 @@ void on_alarm(int signal) {
    }
    else if(strncmp(tokens[0],"create",6)==0)
    {
-       if(activeConn){
+       if(activeConn[thread_id]){
            bool present = false;
            strcpy(sendline,"create");
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            strcpy(sendline,tokens[1]);
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            if(strncmp(recvline,"present",7) == 0)
@@ -498,8 +508,8 @@ void on_alarm(int signal) {
            if(!present){
                bzero(sendline,MAX_INPUT_SIZE);
                strcpy(sendline,tokens[2]);
-               write(sockfd,sendline,strlen(sendline)+1);
-               read(sockfd,recvline,100);
+               write(sockfd[thread_id],sendline,strlen(sendline)+1);
+               read(sockfd[thread_id],recvline,100);
                printf("%s\n",recvline);
 
                int i = 3;
@@ -520,9 +530,9 @@ void on_alarm(int signal) {
                }
                sendline[strlen(sendline)-1]=0;
                printf("\nYour text ::::-> %s \n\nText size:%ld\n\n",sendline,strlen(sendline));
-               write(sockfd,sendline,strlen(sendline)+1);
+               write(sockfd[thread_id],sendline,strlen(sendline)+1);
 
-               n = read(sockfd,recvline,10000);
+               n = read(sockfd[thread_id],recvline,10000);
                printf("%s\n",recvline);
                // while(i<tokenCount){
                //     strcpy(sendline,tokens[i]);
@@ -531,7 +541,7 @@ void on_alarm(int signal) {
                //     printf("%s\n",recvline);
                //     i+=1;
                // }
-               n = read(sockfd,recvline,100);
+               n = read(sockfd[thread_id],recvline,100);
                printf("%s\n",recvline);
            }
        }
@@ -541,18 +551,18 @@ void on_alarm(int signal) {
    }
    else if(strncmp(tokens[0],"read",4)==0)
    {
-       if(activeConn){
+       if(activeConn[thread_id]){
            bool present = true;
            bzero(sendline,MAX_INPUT_SIZE);
            strcpy(sendline,"read");
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
            bzero(sendline,MAX_INPUT_SIZE);
            strcpy(sendline,tokens[1]);
            // bzero(sendline,MAX_INPUT_SIZE);
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            if(strncmp(recvline,"not",3) == 0)
@@ -565,13 +575,13 @@ void on_alarm(int signal) {
              int size;
              char buffer[256];
              bzero(buffer,256);
-             n=read(sockfd,buffer,255);
+             n=read(sockfd[thread_id],buffer,255);
              // printf("%d\n",n);
              sscanf(buffer, "%d", &size);
              printf("Read: Got size value from the server= %d\n",size);
              char dummy[10];
              bzero(dummy,10);
-             n=write(sockfd,dummy,strlen(dummy)+1);
+             n=write(sockfd[thread_id],dummy,strlen(dummy)+1);
              int bytesRead = 0;
              int bytesToRead =size+1;
              int readThisTime;
@@ -581,7 +591,7 @@ void on_alarm(int signal) {
              {
                  do
                  {
-                      readThisTime = read(sockfd, bufferRead + bytesRead, (bytesToRead - bytesRead));
+                      readThisTime = read(sockfd[thread_id], bufferRead + bytesRead, (bytesToRead - bytesRead));
                  }
                  while(readThisTime == -1);
 
@@ -604,16 +614,16 @@ void on_alarm(int signal) {
    }
    else if(strncmp(tokens[0],"update",6)==0)
    {
-       if(activeConn){
+       if(activeConn[thread_id]){
            bool present = true;
            strcpy(sendline,"update");
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            strcpy(sendline,tokens[1]);
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            if(strncmp(recvline,"not",3) == 0)
@@ -624,8 +634,8 @@ void on_alarm(int signal) {
            if(present){
              bzero(sendline,MAX_INPUT_SIZE);
              strcpy(sendline,tokens[2]);
-             write(sockfd,sendline,strlen(sendline)+1);
-             read(sockfd,recvline,100);
+             write(sockfd[thread_id],sendline,strlen(sendline)+1);
+             read(sockfd[thread_id],recvline,100);
              printf("%s\n",recvline);
 
              int i = 3;
@@ -647,9 +657,9 @@ void on_alarm(int signal) {
              }
              sendline[strlen(sendline)-1]=0;
              printf("\nText Read:::-> %s \n\nText size: %ld\n\n",sendline,strlen(sendline));
-             write(sockfd,sendline,strlen(sendline)+1);
+             write(sockfd[thread_id],sendline,strlen(sendline)+1);
 
-             n = read(sockfd,recvline,10000);
+             n = read(sockfd[thread_id],recvline,10000);
              printf("%s\n",recvline);
              // while(i<tokenCount){
              //     strcpy(sendline,tokens[i]);
@@ -658,7 +668,7 @@ void on_alarm(int signal) {
              //     printf("%s\n",recvline);
              //     i+=1;
              // }
-             n = read(sockfd,recvline,100);
+             n = read(sockfd[thread_id],recvline,100);
              printf("%s\n",recvline);
            }
        }
@@ -668,15 +678,15 @@ void on_alarm(int signal) {
    }
    else if(strncmp(tokens[0],"delete",6)==0)
    {
-       if(activeConn){
+       if(activeConn[thread_id]){
            bool present = true;
            strcpy(sendline,"delete");
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
            strcpy(sendline,tokens[1]);
-           write(sockfd,sendline,strlen(sendline)+1);
-           read(sockfd,recvline,100);
+           write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           read(sockfd[thread_id],recvline,100);
            printf("%s\n",recvline);
 
            if(strncmp(recvline,"not",3) == 0)
@@ -689,7 +699,7 @@ void on_alarm(int signal) {
              int size;
              char buffer[256];
              bzero(buffer,256);
-             n=read(sockfd,buffer,255);
+             n=read(sockfd[thread_id],buffer,255);
              printf("%s\n",buffer);
            }
        }
