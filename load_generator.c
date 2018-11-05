@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-03T15:03:45+05:30
+ * @Last modified time: 2018-11-05T14:47:10+05:30
  */
 
  #include <sys/types.h>
@@ -20,8 +20,8 @@
  #define MAX_INPUT_SIZE 100000
  #define MAX_TOKEN_SIZE 100000
  #define MAX_NUM_TOKENS 100000
-
-
+ #define MAX_KEYS_ALLOWED 20
+ #define COMMAND_CHOICES 6
 ///////////////////////////////////////////
 
 //Time check
@@ -30,17 +30,94 @@ bool WITHIN_TIME = true;
 unsigned int NThreads = 100;
 unsigned int alarm_period = 3;
 int count =0;
-
+int key;
+int commandChoice;
+bool connectChoice = false;
 
 
 // const char *command[5];
 // command[0] = "connect 127.0.0.1 8000";
 // command[1] = "hmm";
+void my_init() {
+    srand(time(NULL));
+}
+
+int get_random() {
+    return rand() % COMMAND_CHOICES;
+}
+
+char * createCommand(void)
+{
+  int choice;
+  char *command = (char *)malloc(50*sizeof(char));
+
+  int commandChoice = get_random()+1;
+  while( !connectChoice && commandChoice == 6)
+      commandChoice = get_random()+1;
+
+  while( connectChoice && commandChoice == 1)
+        commandChoice = get_random()+1;
+  switch(commandChoice)
+  {
+      case 1 :  sprintf(command,"connect 127.0.0.1 3000");
+                connectChoice = true;
+                break;
+
+      case 2 :  choice = randomKeyChoices();
+                sprintf(command,"create %d 4 atul",choice);
+                break;
+
+      case 3 :  choice = randomKeyChoices();
+                sprintf(command,"read %d",choice);
+                break;
+
+      case 4 :  choice = randomKeyChoices();
+                sprintf(command,"update %d 4 atul",choice);
+                break;
+
+      case 5 :  choice = randomKeyChoices();
+                sprintf(command,"delete %d",choice);
+                break;
+
+      case 6 :  sprintf(command,"disconnect",choice);
+                connectChoice = false;
+                break;
+  }
+
+
+
+
+  // printf("%s\n",command );
+  // printf("first Number =%d\n\n",i);
+  // while (i >= 0) {
+  //     printf ("Number = %3d\n", i);
+  //     sprintf(command,"create %d 4 atul",i);
+  //     printf("%s\n",command);
+  //     i = myRandom (-1);
+  // }
+  // printf ("Final  = %3d\n", i);
+  return command;
+}
 
 
 
 #define ERR_NO_NUM -1
 #define ERR_NO_MEM -2
+
+
+//// Random Key Values will be given
+int randomKeyChoices()
+{
+  int i;
+  while(key>=0){
+    i=key;
+    key = myRandom(-1);
+    break;
+  }
+  if(key<0)
+    key = myRandom(MAX_KEYS_ALLOWED);
+  return i;
+}
 
 int myRandom (int size) {
     int i, n;
@@ -81,14 +158,9 @@ int myRandom (int size) {
 
 
 
-
-
 void on_alarm(int signal) {
     WITHIN_TIME=false;
     printf("Program exit\n");
-    // if (alarm_stop) return;
-    // else alarm(alarm_period);
-    // Insert periodic stuff here.
 }
 
 
@@ -146,16 +218,19 @@ void* sender(void *ptr) {
 
 int main()
 {
+  ////Particular Initialisation of key with a value
+  my_init();
+  key = myRandom(MAX_KEYS_ALLOWED);
+  commandChoice = myRandom(COMMAND_CHOICES);
 
   int i;
-
-    srand (time (NULL));
-    i = myRandom (20);
-    while (i >= 0) {
-        printf ("Number = %3d\n", i);
-        i = myRandom (-1);
-    }
-    printf ("Final  = %3d\n", i);
+  char *command;
+  for(i = 0; i < 22 ; i++)
+  {
+      command = createCommand();
+      printf("Command : %s\n",command);
+      free(command);
+  }
 
   // sender threads
   pthread_t sender_th[NThreads];
@@ -180,14 +255,7 @@ int main()
   for(i=0; i < NThreads ; i++){
       pthread_join(sender_th[i],NULL);
   }
-  //printf("count %d\n",count);
-  // pthread_join(&con1, NULL);
-  // pthread_join(&con2, NULL);
-  // pthread_join(&con3, NULL);
-  // pthread_join(&con4, NULL);
-  // pthread_join(&pro, NULL);
-
-
+  return 0;
 }
 // //////////////////////////////////////
 //  //tokenize the input string
