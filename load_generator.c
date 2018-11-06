@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-06T01:29:02+05:30
+ * @Last modified time: 2018-11-06T14:23:21+05:30
  */
 
  #include <sys/types.h>
@@ -24,11 +24,18 @@
  #define COMMAND_CHOICES 6
 ///////////////////////////////////////////
 
+/// Network things
+char *IP;
+char *SOCKET;
+
+//////////////////
+
+
 //Time check
 // int alarm_stop = FALSE;
 bool WITHIN_TIME = true;
-unsigned int NThreads = 800;
-unsigned int alarm_period = 100;
+unsigned int NThreads = 3800;
+unsigned int alarm_period = 120;
 int count =0;
 int key;
 int commandChoice;
@@ -57,7 +64,7 @@ char * createCommand(int *connectDuration)
 {
   int choice;
   char *command = (char *)malloc(50*sizeof(char));
-
+  char command_str[100];
   int commandChoice = get_random(COMMAND_CHOICES)+1;
   if(*connectDuration==-1 && commandChoice == 1)
       *connectDuration = 0;
@@ -68,7 +75,11 @@ char * createCommand(int *connectDuration)
         commandChoice = get_random(COMMAND_CHOICES)+1;
   switch(commandChoice)
   {
-      case 1 :  sprintf(command,"connect 127.0.0.1 3000");
+      case 1 :  strcpy(command_str,"connect ");
+                strcat(command_str,IP);
+                strcat(command_str," ");
+                strcat(command_str,SOCKET);
+                sprintf(command,command_str);
                 break;
 
       case 2 :  choice = get_random(MAX_KEYS_ALLOWED);
@@ -185,8 +196,22 @@ void on_alarm(int signal) {
  void lineByline(FILE * file);
  char * readline(FILE *fp, char *buffer);
 
-  int main()
+  int main(int argc, char** argv)
   {
+      IP = argv[1];
+      SOCKET =argv[2];
+      // printf("%s\n%s\n",IP,SOCKET);
+      // char command_str[100];
+      // strcpy(command_str,"connect ");
+      // strcat(command_str,IP);
+      // strcat(command_str," ");
+      // strcat(command_str,SOCKET);
+      // printf("%s\n",command_str);
+      NThreads = atoi(argv[3]);
+      alarm_period = atoi(argv[4]);
+      // printf("%d %d \n",NThreads,alarm_period);
+      //
+      // exit(1);
       ////Particular Initialisation of key and random Command Choice with a value
       //For seeding with current time
       my_init();
