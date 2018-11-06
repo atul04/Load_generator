@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-06T14:23:21+05:30
+ * @Last modified time: 2018-11-06T16:06:26+05:30
  */
 
  #include <sys/types.h>
@@ -66,13 +66,26 @@ char * createCommand(int *connectDuration)
   char *command = (char *)malloc(50*sizeof(char));
   char command_str[100];
   int commandChoice = get_random(COMMAND_CHOICES)+1;
+  printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
   if(*connectDuration==-1 && commandChoice == 1)
       *connectDuration = 0;
-  while( commandChoice == 6 && *connectDuration < 500)
+  while( commandChoice == 6 && (*connectDuration < 500)){
+      printf("Inwhilww\n");
       commandChoice = get_random(COMMAND_CHOICES)+1;
+    }
+  if(commandChoice == 1 && (*connectDuration > 0))
+  {
+      while(commandChoice==1 && (*connectDuration<500))
+      {
+          printf("Here\n");
+          commandChoice = get_random(COMMAND_CHOICES)+1;
+          if(commandChoice==6)
+            commandChoice=1;
+      }
 
-  while( commandChoice == 1 && *connectDuration < 500 && *connectDuration!=0)
-        commandChoice = get_random(COMMAND_CHOICES)+1;
+  }
+
+  printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
   switch(commandChoice)
   {
       case 1 :  strcpy(command_str,"connect ");
@@ -103,18 +116,6 @@ char * createCommand(int *connectDuration)
                 break;
   }
 
-
-
-
-  // printf("%s\n",command );
-  // printf("first Number =%d\n\n",i);
-  // while (i >= 0) {
-  //     printf ("Number = %3d\n", i);
-  //     sprintf(command,"create %d 4 atul",i);
-  //     printf("%s\n",command);
-  //     i = myRandom (-1);
-  // }
-  // printf ("Final  = %3d\n", i);
   if(*connectDuration!=-1)
       *connectDuration +=1;
   return command;
@@ -210,8 +211,20 @@ void on_alarm(int signal) {
       NThreads = atoi(argv[3]);
       alarm_period = atoi(argv[4]);
       // printf("%d %d \n",NThreads,alarm_period);
-      //
+      // //
+      // int x = 0;
+      // char *command;
+      // int *connectDuration = (int *)malloc(sizeof(int));
+      // *connectDuration = -1;
+      // for(x = 0; x < 1000 ; x++)
+      // {
+      //     command = createCommand(connectDuration);
+      //     printf("Command : %s\n",command);
+      //     free(command);
+      // }
       // exit(1);
+
+      
       ////Particular Initialisation of key and random Command Choice with a value
       //For seeding with current time
       my_init();
@@ -246,10 +259,11 @@ void on_alarm(int signal) {
       }
 
       pause();
-      printf("count of threads exit : %d\nDone\n",count);
+
       for(i=0; i < NThreads ; i++){
           pthread_join(sender_th[i],NULL);
       }
+      printf("count of threads exit : %d\nDone\n",count);
       free(activeConn);
       return 0;
   }

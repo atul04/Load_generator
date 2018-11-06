@@ -2,3 +2,4 @@ client
 client.o
 server
 load_generator
+result*
