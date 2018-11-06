@@ -3,7 +3,7 @@
  * @Date:   2018-10-06T20:05:51+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-10-07T15:07:17+05:30
+ * @Last modified time: 2018-11-05T19:37:24+05:30
  */
 
 /*
@@ -43,7 +43,7 @@
    #define MAXBUFFERSIZE 3
    #define SLEEP_NANOSEC_PROD 100
    #define SLEEP_NANOSEC_CONS 100
-   #define CONSTHREAD 100
+   #define CONSTHREAD 1000
 
    /////////////////////      Global definitions
    pthread_cond_t condc, condp;

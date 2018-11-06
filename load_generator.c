@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-05T20:24:32+05:30
+ * @Last modified time: 2018-11-06T01:29:02+05:30
  */
 
  #include <sys/types.h>
@@ -20,7 +20,7 @@
  #define MAX_INPUT_SIZE 100000
  #define MAX_TOKEN_SIZE 100000
  #define MAX_NUM_TOKENS 100000
- #define MAX_KEYS_ALLOWED 20
+ #define MAX_KEYS_ALLOWED 10000
  #define COMMAND_CHOICES 6
 ///////////////////////////////////////////
 
@@ -49,8 +49,8 @@ void my_init() {
     srand(time(NULL));
 }
 
-int get_random() {
-    return rand() % COMMAND_CHOICES;
+int get_random(int choices) {
+    return rand() % choices;
 }
 
 char * createCommand(int *connectDuration)
@@ -58,32 +58,32 @@ char * createCommand(int *connectDuration)
   int choice;
   char *command = (char *)malloc(50*sizeof(char));
 
-  int commandChoice = get_random()+1;
+  int commandChoice = get_random(COMMAND_CHOICES)+1;
   if(*connectDuration==-1 && commandChoice == 1)
       *connectDuration = 0;
   while( commandChoice == 6 && *connectDuration < 500)
-      commandChoice = get_random()+1;
+      commandChoice = get_random(COMMAND_CHOICES)+1;
 
   while( commandChoice == 1 && *connectDuration < 500 && *connectDuration!=0)
-        commandChoice = get_random()+1;
+        commandChoice = get_random(COMMAND_CHOICES)+1;
   switch(commandChoice)
   {
-      case 1 :  sprintf(command,"connect 10.42.0.21 3000");
+      case 1 :  sprintf(command,"connect 127.0.0.1 3000");
                 break;
 
-      case 2 :  choice = randomKeyChoices();
+      case 2 :  choice = get_random(MAX_KEYS_ALLOWED);
                 sprintf(command,"create %d 4 atul",choice);
                 break;
 
-      case 3 :  choice = randomKeyChoices();
+      case 3 :  choice = get_random(MAX_KEYS_ALLOWED);
                 sprintf(command,"read %d",choice);
                 break;
 
-      case 4 :  choice = randomKeyChoices();
+      case 4 :  choice = get_random(MAX_KEYS_ALLOWED);
                 sprintf(command,"update %d 4 atul",choice);
                 break;
 
-      case 5 :  choice = randomKeyChoices();
+      case 5 :  choice = get_random(MAX_KEYS_ALLOWED);
                 sprintf(command,"delete %d",choice);
                 break;
 
