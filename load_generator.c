@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-06T16:06:26+05:30
+ * @Last modified time: 2018-11-07T06:27:42+05:30
  */
 
  #include <sys/types.h>
@@ -15,6 +15,7 @@
  #include <stdlib.h>
  #include <unistd.h>
  #include <signal.h>
+ #include <time.h>
 
  // Maximum input size from the interactive mode or batch mode
  #define MAX_INPUT_SIZE 100000
@@ -39,6 +40,14 @@ unsigned int alarm_period = 120;
 int count =0;
 int key;
 int commandChoice;
+
+
+
+
+/// Measurement tools /////////
+int *totalRequests;
+int *throughput;
+float *responseTime;
 //bool connectChoice = false;
 
 
@@ -66,18 +75,20 @@ char * createCommand(int *connectDuration)
   char *command = (char *)malloc(50*sizeof(char));
   char command_str[100];
   int commandChoice = get_random(COMMAND_CHOICES)+1;
-  printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
-  if(*connectDuration==-1 && commandChoice == 1)
+  //\\printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
+  if(*connectDuration==-1){
       *connectDuration = 0;
-  while( commandChoice == 6 && (*connectDuration < 500)){
-      printf("Inwhilww\n");
+      commandChoice = 1;
+    }
+  while( commandChoice == 6 && (*connectDuration < 10)){
+      //\\printf("Inwhilww\n");
       commandChoice = get_random(COMMAND_CHOICES)+1;
     }
   if(commandChoice == 1 && (*connectDuration > 0))
   {
-      while(commandChoice==1 && (*connectDuration<500))
+      while(commandChoice==1 && (*connectDuration<10))
       {
-          printf("Here\n");
+          //\\printf("Here\n");
           commandChoice = get_random(COMMAND_CHOICES)+1;
           if(commandChoice==6)
             commandChoice=1;
@@ -85,7 +96,7 @@ char * createCommand(int *connectDuration)
 
   }
 
-  printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
+  //\\printf("Command Choice : %d connectDuration : %d\n",commandChoice,*connectDuration);
   switch(commandChoice)
   {
       case 1 :  strcpy(command_str,"connect ");
@@ -193,44 +204,46 @@ void on_alarm(int signal) {
  char **tokenize(char *line);
  ////////////////////////////////
 
- void parser(char **tokens,int thread_id);
+ void parser(char *command,int thread_id);
  void lineByline(FILE * file);
  char * readline(FILE *fp, char *buffer);
+
+ int sendRequest(int sockfd,char *command,int thread_id);
 
   int main(int argc, char** argv)
   {
       IP = argv[1];
       SOCKET =argv[2];
+      totalRequests = 0;
       // printf("%s\n%s\n",IP,SOCKET);
-      // char command_str[100];
-      // strcpy(command_str,"connect ");
-      // strcat(command_str,IP);
-      // strcat(command_str," ");
-      // strcat(command_str,SOCKET);
-      // printf("%s\n",command_str);
+
+
       NThreads = atoi(argv[3]);
       alarm_period = atoi(argv[4]);
       // printf("%d %d \n",NThreads,alarm_period);
-      // //
-      // int x = 0;
-      // char *command;
-      // int *connectDuration = (int *)malloc(sizeof(int));
-      // *connectDuration = -1;
-      // for(x = 0; x < 1000 ; x++)
-      // {
-      //     command = createCommand(connectDuration);
-      //     printf("Command : %s\n",command);
-      //     free(command);
-      // }
-      // exit(1);
+      //
+      int x = 0;
+      char *command;
+      int *connectDuration = (int *)malloc(sizeof(int));
+      *connectDuration = -1;
+      for(x = 0; x < 1000 ; x++)
+      {
+          command = createCommand(connectDuration);
+          printf("Command : %s\n",command);
+          free(command);
+      }
+      exit(1);
 
-      
+
       ////Particular Initialisation of key and random Command Choice with a value
       //For seeding with current time
       my_init();
       key = myRandom(MAX_KEYS_ALLOWED);
       commandChoice = myRandom(COMMAND_CHOICES);
       activeConn = (bool *)malloc((NThreads+1)*sizeof(bool));
+      throughput = (int *)malloc((NThreads+1)*sizeof(int));
+      totalRequests = (int *)malloc((NThreads+1)*sizeof(int));
+      responseTime = (float *)malloc((NThreads+1)*sizeof(float));
       // activeConn[0] = false;
       // printf("%d\n",activeConn[0]);
       sockfd = (int *)malloc((NThreads+1)*sizeof(int));
@@ -251,20 +264,74 @@ void on_alarm(int signal) {
       {
           sender_thread_id[i] = i+1;
           activeConn[i] = false;
+          throughput[i] = 0;
+          responseTime[i] = 0;
+          totalRequests[i] = 0;
       }
       activeConn[i] = false;
+      throughput[i] = 0;
+      responseTime[i] = 0;
+      totalRequests[i] = 0;
+      // char command_str[100];
+      // strcpy(command_str,"connect ");
+      // strcat(command_str,IP);
+      // strcat(command_str," ");
+      // strcat(command_str,SOCKET);
+      // // printf("%s\n",command_str);
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"read 1");
+      // parser(command_str,2);
+      // strcpy(command_str,"create 1 4 atul");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"read 1");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"delete 1");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"read 1");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"create 1 4 atul");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"update 1 2 aa");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"read 1");
+      // parser(command_str,2);
+      // bzero(command_str,100);
+      // strcpy(command_str,"disconnect");
+      // parser(command_str,2);
+      //
+      // exit(1);
       for(i = 0 ; i < NThreads ; i++)
       {
           pthread_create(&sender_th[i], NULL, sender, (void *)&sender_thread_id[i]);
       }
 
       pause();
-
+      int successCount = 0;
+      int totalCount = 0;
+      double mean_response = 0;
       for(i=0; i < NThreads ; i++){
           pthread_join(sender_th[i],NULL);
+          successCount += throughput[i+1];
+          totalCount+=totalRequests[i+1];
+          mean_response += responseTime[i+1];
       }
       printf("count of threads exit : %d\nDone\n",count);
+      printf("Total Requests Made : %d\nSuccessfull Requests : %d\n",totalCount,successCount);
+      float throughputValue = successCount / alarm_period;
+      printf("Throughput : %f\n",throughputValue);
+      mean_response/=totalCount;
+      printf("Response Time %f\n",mean_response);
+
       free(activeConn);
+      free(throughput);
+      free(responseTime);
       return 0;
   }
 // //////////////////////////////////////
@@ -379,7 +446,34 @@ void on_alarm(int signal) {
 
 
  ////////// Function Definition are written here ////////////////////////
-
+ int sendRequest(int sockfd,char *command,int thread_id)
+ {
+    totalRequests[thread_id]+=1;
+    char recvline[MAX_INPUT_SIZE];
+    bzero(recvline,MAX_INPUT_SIZE);
+    char sendline[MAX_INPUT_SIZE];
+    bzero(sendline,MAX_INPUT_SIZE);
+    strcpy(sendline,command);
+    int n;
+    n = write(sockfd,sendline,strlen(sendline)+1);
+    if(n<=0)
+    {
+       return n;
+    }
+    else{
+       n = read(sockfd,recvline,100);
+       if(n>0)
+       {
+          //printf("%s\n",recvline );
+          throughput[thread_id]+=1;
+          return n;
+       }
+       else{
+          return n;
+       }
+     }
+     return n;
+ }
 
 
  void* sender(void *ptr) {
@@ -391,28 +485,28 @@ void on_alarm(int signal) {
    *connectDuration = -1;
    while(WITHIN_TIME){
      command = createCommand(connectDuration);
-     printf("Command : %s\n",command);
+     //printf("Command : %s\n",command);
 
-     char  *line = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
-     char **tokens;
-
-
-     int tokenCount=0;
-     bzero(line, MAX_INPUT_SIZE);
-     strcpy(line,command);
+     // char  *line = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
+     // char **tokens;
+     //
+     //
+     // int tokenCount=0;
+     // bzero(line, MAX_INPUT_SIZE);
+     // strcpy(line,command);
      // line = readMy();
      //fgets(line,MAX_INPUT_SIZE,stdin);
-     line[strlen(line)] = '\n'; //terminate with new line
-     tokens = tokenize(line);
-     parser(tokens,thread_id);
-     int i;
+     // line[strlen(line)] = '\n'; //terminate with new line
+     //tokens = tokenize(line);
+     parser(command,thread_id);
+     // int i;
      //Freeing up the acquired space by the tokens
-     for(i=0;tokens[i]!=NULL;i++){
-          // printf("token %d : %s\n",i+1,tokens[i]);
-          free(tokens[i]);
-     }
-     free(tokens);
-     free(line);
+     // for(i=0;tokens[i]!=NULL;i++){
+     //      // printf("token %d : %s\n",i+1,tokens[i]);
+     //      free(tokens[i]);
+     // }
+     // free(tokens);
+     // free(line);
      free(command);
      // pthread_mutex_lock(&mutex);
      // while (queue_count==0){
@@ -449,9 +543,14 @@ void on_alarm(int signal) {
    // numT+=1;
    // if(numT==5)
    // {
+   // char command_str[100];
+   // bzero(command_str,100);
+   // strcpy(command_str,"disconnect");
+   // parser(command_str,thread_id);
    //   cleanup_routine();
-     printf("Thread exit id: %d\n",thread_id);
+     printf("Thread exit id: %d throughput : %d\n",thread_id,throughput[thread_id]);
      count+=1;
+     printf("Count: %d\n",count);
      // if(count==100)
      //     printf("count %d\nDone\n",count);
    //  pthread_exit(NULL);
@@ -460,7 +559,8 @@ void on_alarm(int signal) {
  }
 
  /**************** Parsing the commands ***********/
- void parser(char **tokens,int thread_id){
+ void parser(char *command,int thread_id){
+   clock_t start, end;
    // char *sendline =(char*)malloc(MAX_INPUT_SIZE*sizeof(char));
    // char *recvline =(char*)malloc(MAX_INPUT_SIZE*sizeof(char));
    char sendline[MAX_INPUT_SIZE];
@@ -469,15 +569,33 @@ void on_alarm(int signal) {
    int tokenCount = 0;
    bzero(sendline,MAX_INPUT_SIZE);
    bzero(recvline,MAX_INPUT_SIZE);
+   double response;
    //do whatever you want with the commands, here we just print them
-   for(i=0;tokens[i]!=NULL;i++){
-      // printf("found token %s\n", tokens[i]);
-      tokenCount++;
-   }
+   // for(i=0;tokens[i]!=NULL;i++){
+   //    // printf("found token %s\n", tokens[i]);
+   //    tokenCount++;
+   // }
 
    /// All the functions are going to be written here
-   if(strncmp(tokens[0],"connect",7)==0)
+   if(strncmp(command,"connect",7)==0 && WITHIN_TIME)
    {
+     char  *line = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
+     // char **tokens;
+     //
+     //
+     // int tokenCount=0;
+      bzero(line, MAX_INPUT_SIZE);
+      strcpy(line,command);
+     // line = readMy();
+     //fgets(line,MAX_INPUT_SIZE,stdin);
+      line[strlen(line)] = '\n'; //terminate with new line
+      char **tokens = tokenize(line);
+      free(line);
+      // for(i = 0 ; tokens[i]!=NULL ; i++)
+      // {
+      //     printf("%s\n",tokens[i]);
+      // }
+
        if(!activeConn[thread_id])
        {
            char address[1024];
@@ -496,259 +614,324 @@ void on_alarm(int signal) {
 
            inet_pton(AF_INET,address,&(servaddr[thread_id].sin_addr));
 
+           start = clock();
+           totalRequests[thread_id]+=1;
            if(connect(sockfd[thread_id],(struct sockaddr *)&servaddr[thread_id],sizeof(servaddr[thread_id]))<0)
            {
-               printf("\nConnection Failed \n");
+               //printf("\nConnection Failed \n");
            }
            else{
                activeConn[thread_id] = true;
-               printf("ok Connection made\n");
+               throughput[thread_id]+=1;
+               //\\printf("Connect : Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+               //printf("ok Connection made\n");
            }
+           end = clock();
+           response = ((double)(end-start))/ CLOCKS_PER_SEC;
+           responseTime[thread_id]+=response;
+           int x = 0;
+           for(x = 0 ; tokens[x]!=NULL ; x++)
+           {
+              free(tokens[x]);
+           }
+           free(tokens);
        }
 
        else{
-           printf("Already have a connection\n");
+           //printf("Already have a connection\n");
        }
    }
-   else if(strncmp(tokens[0],"disconnect",10)==0)
+   else if(strncmp(command,"disconnect",10)==0 && WITHIN_TIME)
    {
        if(activeConn[thread_id])
        {
            strcpy(sendline,"bye");
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-           activeConn[thread_id] = false;
+           start = clock();
+           n = sendRequest(sockfd[thread_id],sendline,thread_id);
+           end = clock();
+           response = ((double)(end-start))/ CLOCKS_PER_SEC;
+           responseTime[thread_id]+=response;
+
+           if(n<=0)
+           {
+              //printf("%s\n","Disconnect: Connection Failed" );
+           }
        }
        else
        {
-           printf("Please first make an active connection\n");
+            throughput[thread_id]+=1;
+            //\\printf("Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+           //printf("Please first make an active connection\n");
        }
    }
-   else if(strncmp(tokens[0],"create",6)==0)
+   else if(strncmp(command,"create",6)==0 && WITHIN_TIME)
    {
        if(activeConn[thread_id]){
-           bool present = false;
-           strcpy(sendline,"create");
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           strcpy(sendline,tokens[1]);
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           if(strncmp(recvline,"present",7) == 0)
-           {
-               present=true;
-               printf("Error: key is already present\n");
-           }
-           if(!present){
-               bzero(sendline,MAX_INPUT_SIZE);
-               strcpy(sendline,tokens[2]);
-               write(sockfd[thread_id],sendline,strlen(sendline)+1);
-               read(sockfd[thread_id],recvline,100);
-               printf("%s\n",recvline);
-
-               int i = 3;
-               int totalStrLen = 0;
-               while(i<tokenCount)
-               {
-                   totalStrLen+=strlen(tokens[i]);
-                   totalStrLen+=1;
-                   i++;
-               }
-               bzero(sendline,MAX_INPUT_SIZE);
-               i=3;
-               while(i<tokenCount)
-               {
-                   strcat(sendline,tokens[i]);
-                   strcat(sendline," ");
-                   i+=1;
-               }
-               sendline[strlen(sendline)-1]=0;
-               printf("\nYour text ::::-> %s \n\nText size:%ld\n\n",sendline,strlen(sendline));
-               write(sockfd[thread_id],sendline,strlen(sendline)+1);
-
-               n = read(sockfd[thread_id],recvline,10000);
-               printf("%s\n",recvline);
-               // while(i<tokenCount){
-               //     strcpy(sendline,tokens[i]);
-               //     write(sockfd,sendline,strlen(sendline)+1);
-               //     n = read(sockfd,recvline,100);
-               //     printf("%s\n",recvline);
-               //     i+=1;
-               // }
-               n = read(sockfd[thread_id],recvline,100);
-               printf("%s\n",recvline);
-           }
+         start = clock();
+          n = sendRequest(sockfd[thread_id],command,thread_id);
+          end = clock();
+          response = ((double)(end-start))/ CLOCKS_PER_SEC;
+          responseTime[thread_id]+=response;
+          if(n<=0)
+          {
+              //printf("%s\n","Create: Connection Failed" );
+          }
+           // bool present = false;
+           // strcpy(sendline,"create");
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // strcpy(sendline,tokens[1]);
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // if(strncmp(recvline,"present",7) == 0)
+           // {
+           //     present=true;
+           //     //\\printf("Error: key is already present\n");
+           // }
+           // if(!present){
+           //     bzero(sendline,MAX_INPUT_SIZE);
+           //     strcpy(sendline,tokens[2]);
+           //     write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           //     read(sockfd[thread_id],recvline,100);
+           //     //\\printf("%s\n",recvline);
+           //
+           //     int i = 3;
+           //     int totalStrLen = 0;
+           //     while(i<tokenCount)
+           //     {
+           //         totalStrLen+=strlen(tokens[i]);
+           //         totalStrLen+=1;
+           //         i++;
+           //     }
+           //     bzero(sendline,MAX_INPUT_SIZE);
+           //     i=3;
+           //     while(i<tokenCount)
+           //     {
+           //         strcat(sendline,tokens[i]);
+           //         strcat(sendline," ");
+           //         i+=1;
+           //     }
+           //     sendline[strlen(sendline)-1]=0;
+           //     //\\printf("\nYour text ::::-> %s \n\nText size:%ld\n\n",sendline,strlen(sendline));
+           //     write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           //
+           //     n = read(sockfd[thread_id],recvline,10000);
+           //     //\\printf("%s\n",recvline);
+           //     // while(i<tokenCount){
+           //     //     strcpy(sendline,tokens[i]);
+           //     //     write(sockfd,sendline,strlen(sendline)+1);
+           //     //     n = read(sockfd,recvline,100);
+           //     //     printf("%s\n",recvline);
+           //     //     i+=1;
+           //     // }
+           //     n = read(sockfd[thread_id],recvline,100);
+           //     //\\printf("%s\n",recvline);
+           // }
        }
        else{
-           printf("No active connection present\n");
+         // throughput[thread_id]+=1;
+         //\\printf("Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+           //printf("No active connection present\n");
        }
    }
-   else if(strncmp(tokens[0],"read",4)==0)
+   else if(strncmp(command,"read",4)==0 && WITHIN_TIME)
    {
        if(activeConn[thread_id]){
-           bool present = true;
-           bzero(sendline,MAX_INPUT_SIZE);
-           strcpy(sendline,"read");
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-           bzero(sendline,MAX_INPUT_SIZE);
-           strcpy(sendline,tokens[1]);
+          start = clock();
+          n = sendRequest(sockfd[thread_id],command,thread_id);
+          end = clock();
+          response = ((double)(end-start))/ CLOCKS_PER_SEC;
+          responseTime[thread_id]+=response;
+          if(n<=0)
+          {
+             //printf("%s\n","Read: Connection Failed" );
+          }
+           // bool present = true;
            // bzero(sendline,MAX_INPUT_SIZE);
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           if(strncmp(recvline,"not",3) == 0)
-           {
-               present=false;
-               printf("Error: key is not present\n");
-           }
-           if(present){
-             unsigned int length;
-             int size;
-             char buffer[256];
-             bzero(buffer,256);
-             n=read(sockfd[thread_id],buffer,255);
-             // printf("%d\n",n);
-             sscanf(buffer, "%d", &size);
-             printf("Read: Got size value from the server= %d\n",size);
-             char dummy[10];
-             bzero(dummy,10);
-             n=write(sockfd[thread_id],dummy,strlen(dummy)+1);
-             int bytesRead = 0;
-             int bytesToRead =size+1;
-             int readThisTime;
-             char *bufferRead = (char *)malloc(bytesToRead*sizeof(char));
-             bzero(bufferRead,size+1);
-             while (bytesToRead != bytesRead)
-             {
-                 do
-                 {
-                      readThisTime = read(sockfd[thread_id], bufferRead + bytesRead, (bytesToRead - bytesRead));
-                 }
-                 while(readThisTime == -1);
-
-                 if (readThisTime == -1)
-                 {
-                     /* Real error. Do something appropriate. */
-                     return 0;
-                 }
-                 // printf("%d\n",readThisTime);
-                 bytesRead += readThisTime;
-             }
-
-             printf("RECEIVED TEXT : %s\n",bufferRead);
-             free(bufferRead);
-           }
+           // strcpy(sendline,"read");
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           // bzero(sendline,MAX_INPUT_SIZE);
+           // strcpy(sendline,tokens[1]);
+           // // bzero(sendline,MAX_INPUT_SIZE);
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // if(strncmp(recvline,"not",3) == 0)
+           // {
+           //     present=false;
+           //     //\\printf("Error: key is not present\n");
+           // }
+           // if(present){
+           //   unsigned int length;
+           //   int size;
+           //   char buffer[256];
+           //   bzero(buffer,256);
+           //   n=read(sockfd[thread_id],buffer,255);
+           //   // printf("%d\n",n);
+           //   sscanf(buffer, "%d", &size);
+           //   //\\printf("Read: Got size value from the server= %d\n",size);
+           //   char dummy[10];
+           //   bzero(dummy,10);
+           //   n=write(sockfd[thread_id],dummy,strlen(dummy)+1);
+           //   int bytesRead = 0;
+           //   int bytesToRead =size+1;
+           //   int readThisTime;
+           //   char *bufferRead = (char *)malloc(bytesToRead*sizeof(char));
+           //   bzero(bufferRead,size+1);
+           //   while (bytesToRead != bytesRead)
+           //   {
+           //       do
+           //       {
+           //            readThisTime = read(sockfd[thread_id], bufferRead + bytesRead, (bytesToRead - bytesRead));
+           //       }
+           //       while(readThisTime == -1);
+           //
+           //       if (readThisTime == -1)
+           //       {
+           //           /* Real error. Do something appropriate. */
+           //           return 0;
+           //       }
+           //       // printf("%d\n",readThisTime);
+           //       bytesRead += readThisTime;
+           //   }
+           //
+           //   //\\printf("RECEIVED TEXT : %s\n",bufferRead);
+           //   free(bufferRead);
+           // }
        }
        else{
-           printf("No active connection present\n");
+         // throughput[thread_id]+=1;
+         //\\printf("Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+           //\\printf("No active connection present\n");
        }
    }
-   else if(strncmp(tokens[0],"update",6)==0)
+   else if(strncmp(command,"update",6)==0 && WITHIN_TIME)
    {
        if(activeConn[thread_id]){
-           bool present = true;
-           strcpy(sendline,"update");
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           strcpy(sendline,tokens[1]);
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           if(strncmp(recvline,"not",3) == 0)
-           {
-               present=false;
-               printf("Error: key is not present\n");
-           }
-           if(present){
-             bzero(sendline,MAX_INPUT_SIZE);
-             strcpy(sendline,tokens[2]);
-             write(sockfd[thread_id],sendline,strlen(sendline)+1);
-             read(sockfd[thread_id],recvline,100);
-             printf("%s\n",recvline);
-
-             int i = 3;
-             int totalStrLen = 0;
-             while(i<tokenCount)
-             {
-                 totalStrLen+=strlen(tokens[i]);
-                 totalStrLen+=1;
-                 i++;
-             }
-             bzero(sendline,MAX_INPUT_SIZE);
-             i=3;
-             // printf("%s\n","Going to count now" );
-             while(i<tokenCount)
-             {
-                 strcat(sendline,tokens[i]);
-                 strcat(sendline," ");
-                 i+=1;
-             }
-             sendline[strlen(sendline)-1]=0;
-             printf("\nText Read:::-> %s \n\nText size: %ld\n\n",sendline,strlen(sendline));
-             write(sockfd[thread_id],sendline,strlen(sendline)+1);
-
-             n = read(sockfd[thread_id],recvline,10000);
-             printf("%s\n",recvline);
-             // while(i<tokenCount){
-             //     strcpy(sendline,tokens[i]);
-             //     write(sockfd,sendline,strlen(sendline)+1);
-             //     n = read(sockfd,recvline,100);
-             //     printf("%s\n",recvline);
-             //     i+=1;
-             // }
-             n = read(sockfd[thread_id],recvline,100);
-             printf("%s\n",recvline);
-           }
+         start = clock();
+         n = sendRequest(sockfd[thread_id],command,thread_id);
+         end = clock();
+         response = ((double)(end-start))/ CLOCKS_PER_SEC;
+         responseTime[thread_id]+=response;
+         if(n<=0)
+         {
+             //printf("%s\n","Update: Connection Failed" );
+         }
+           // bool present = true;
+           // strcpy(sendline,"update");
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // strcpy(sendline,tokens[1]);
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // if(strncmp(recvline,"not",3) == 0)
+           // {
+           //     present=false;
+           //     //\\printf("Error: key is not present\n");
+           // }
+           // if(present){
+           //   bzero(sendline,MAX_INPUT_SIZE);
+           //   strcpy(sendline,tokens[2]);
+           //   write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           //   read(sockfd[thread_id],recvline,100);
+           //   //\\printf("%s\n",recvline);
+           //
+           //   int i = 3;
+           //   int totalStrLen = 0;
+           //   while(i<tokenCount)
+           //   {
+           //       totalStrLen+=strlen(tokens[i]);
+           //       totalStrLen+=1;
+           //       i++;
+           //   }
+           //   bzero(sendline,MAX_INPUT_SIZE);
+           //   i=3;
+           //   // printf("%s\n","Going to count now" );
+           //   while(i<tokenCount)
+           //   {
+           //       strcat(sendline,tokens[i]);
+           //       strcat(sendline," ");
+           //       i+=1;
+           //   }
+           //   sendline[strlen(sendline)-1]=0;
+           //   //\\printf("\nText Read:::-> %s \n\nText size: %ld\n\n",sendline,strlen(sendline));
+           //   write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           //
+           //   n = read(sockfd[thread_id],recvline,10000);
+           //   //\\printf("%s\n",recvline);
+           //   // while(i<tokenCount){
+           //   //     strcpy(sendline,tokens[i]);
+           //   //     write(sockfd,sendline,strlen(sendline)+1);
+           //   //     n = read(sockfd,recvline,100);
+           //   //     printf("%s\n",recvline);
+           //   //     i+=1;
+           //   // }
+           //   n = read(sockfd[thread_id],recvline,100);
+           //   //\\printf("%s\n",recvline);
+           // }
        }
        else{
-           printf("No active connection present\n");
+         // throughput[thread_id]+=1;
+         //\\printf("Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+           //printf("No active connection present\n");
        }
    }
-   else if(strncmp(tokens[0],"delete",6)==0)
+   else if(strncmp(command,"delete",6)==0 && WITHIN_TIME)
    {
        if(activeConn[thread_id]){
-           bool present = true;
-           strcpy(sendline,"delete");
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-           strcpy(sendline,tokens[1]);
-           write(sockfd[thread_id],sendline,strlen(sendline)+1);
-           read(sockfd[thread_id],recvline,100);
-           printf("%s\n",recvline);
-
-           if(strncmp(recvline,"not",3) == 0)
-           {
-               present=false;
-               printf("Error: key is not present\n");
-           }
-           if(present){
-             unsigned int length;
-             int size;
-             char buffer[256];
-             bzero(buffer,256);
-             n=read(sockfd[thread_id],buffer,255);
-             printf("%s\n",buffer);
-           }
+         start = clock();
+         n = sendRequest(sockfd[thread_id],command,thread_id);
+         end = clock();
+         response = ((double)(end-start))/ CLOCKS_PER_SEC;
+         responseTime[thread_id]+=response;
+         if(n<=0)
+         {
+             //printf("%s\n","Delete: Connection Failed" );
+         }
+           // bool present = true;
+           // strcpy(sendline,"delete");
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           // strcpy(sendline,tokens[1]);
+           // write(sockfd[thread_id],sendline,strlen(sendline)+1);
+           // read(sockfd[thread_id],recvline,100);
+           // //\\printf("%s\n",recvline);
+           //
+           // if(strncmp(recvline,"not",3) == 0)
+           // {
+           //     present=false;
+           //     //\\printf("Error: key is not present\n");
+           // }
+           // if(present){
+           //   unsigned int length;
+           //   int size;
+           //   char buffer[256];
+           //   bzero(buffer,256);
+           //   n=read(sockfd[thread_id],buffer,255);
+           //   //\\printf("%s\n",buffer);
+           // }
        }
        else{
-           printf("No active connection present\n");
+         // throughput[thread_id]+=1;
+         //\\printf("Thread %d : throughput : %d\n",thread_id,throughput[thread_id]);
+           //printf("No active connection present\n");
        }
    }
    else
    {
-       printf("No command found!! Please try again\n");
+       //printf("No command found!! Please try again\n");
    }
 
  }

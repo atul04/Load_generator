@@ -3,7 +3,7 @@
  * @Date:   2018-10-06T20:05:51+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-05T19:37:24+05:30
+ * @Last modified time: 2018-11-07T04:30:56+05:30
  */
 
 /*
@@ -43,13 +43,17 @@
    #define MAXBUFFERSIZE 3
    #define SLEEP_NANOSEC_PROD 100
    #define SLEEP_NANOSEC_CONS 100
-   #define CONSTHREAD 1000
+   #define CONSTHREAD 3000
+
+   #define MAX_INPUT_SIZE 100000
+   #define MAX_TOKEN_SIZE 100000
+   #define MAX_NUM_TOKENS 100000
 
    /////////////////////      Global definitions
    pthread_cond_t condc, condp;
 
    // for data processing
-   pthread_mutex_t Pmutex;
+   pthread_mutex_t Pmutex,MapDelMutex;
    pthread_cond_t reader_can_enter, writer_can_enter;
    bool writer_present;
    int readcount,writer_waiting;
@@ -77,9 +81,9 @@
    //******************************** Funtion declarations*************************//
 
    //********************** Read Instruction is performed here *******************//
-   void readInstruction(char buffer[], int sock, int thread_id);
+   void readInstruction(char *buffer, int sock, int thread_id);
    //******************* All data base modification is done *********************//
-   void modifyInstruction(char buffer[], int sock, int thread_id);
+   void modifyInstruction(char *buffer, int sock, int thread_id);
 
    // *****************  Locks and Unlocks Methods*********************/
    void readLock(int thread_id);
@@ -100,6 +104,11 @@
    /* pops the socket from the queue and do the necessary operations on the request of user*/
    void* consumer(void *ptr);
 
+   //////////////////////////////////////
+    //tokenize the input string
+    char **tokenize(char *line);
+    ////////////////////////////////
+
 
    //******************************* Driver function
    int main(int argc, char **argv) {
@@ -114,6 +123,7 @@
      readcount = 0; // how many readers are present
      // Initialize the mutex and condition variables
      pthread_mutex_init(&Pmutex, NULL);
+     pthread_mutex_init(&MapDelMutex,NULL);
      pthread_cond_init(&reader_can_enter, NULL);		/* Initialize reader condition variable */
      pthread_cond_init(&writer_can_enter, NULL);		/* Initialize writer condition variable */
      // Ends
@@ -198,7 +208,7 @@
      // pthread_create(&con1, NULL, consumer, (void *)&con1_thread_id);
 
      sleep(1000);
-     printf("Captured Error: Resources not allocated\n");
+     //\\printf("Captured Error: Resources not allocated\n");
      // // For threads to join (Once they complete their tasks)
      // pthread_join(&con1, NULL);
      // pthread_join(&con2, NULL);
@@ -217,198 +227,272 @@
    // Functions definition are written Here
 
    //********************** Read Instruction is performed here *******************//
-   void readInstruction(char buffer[], int sock, int thread_id)
+   void readInstruction(char *buffer, int sock, int thread_id)
    {
+      //pthread_mutex_lock(&MapDelMutex);
        long long int key;
        int n;
        char bufferText[1024];
        bool present = false;
-       snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **READ** command\n", thread_id);
-       n = write(sock,bufferText,strlen(bufferText)+1);
-       bzero(buffer,256);
-       n = read(sock,buffer,255);
-       sscanf(buffer, "%lld", &key);
-       printf("%s size--->%d\n",buffer,n-1);
+       char *command = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
+       bzero(command,MAX_INPUT_SIZE);
+       strcpy(command,buffer);
+       //\\printf("Command : %s\n",command );
+       command[strlen(command)] = '\n';
+       int i=0;
+       char* value = (char *)malloc(1001*sizeof(char));
+       bzero(value,1001);
+       strcpy(value,"atul");
+       char **tokens=tokenize(command);
+       for(i=0;tokens[i]!=NULL;i++){
+            // \\printf("token[%d] : %s\n",i,tokens[i]);
+            //free(tokens[i]);
+       }
+       key = atoi(tokens[1]);
+       //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **READ** command\n", thread_id);
+       //n = write(sock,bufferText,strlen(bufferText)+1);
+       //bzero(buffer,256);
+       //n = read(sock,buffer,255);
+       //sscanf(buffer, "%lld", &key);
+       //\\printf("%s size--->%d\n",buffer,n-1);
        if(bitmap.count(key)==0)
            snprintf(bufferText, sizeof(bufferText), "not\n");
        else{
-           snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
+
+           //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
            present = true;
        }
-       printf("%s\n",bufferText);
-       n = write(sock,bufferText,strlen(bufferText)+1);
+       //\\printf("%s\n",bufferText);
+       //n = write(sock,bufferText,strlen(bufferText)+1);
 
-       if(present){
+       if(hashTable.find(key) != hashTable.end() && hashTable.find(key)->second!=NULL){
            // value size
-           int size = strlen(hashTable[key]);
-           snprintf(bufferText, sizeof(bufferText), "%d\n",size);
-           printf("%s\n",bufferText);
-           n = write(sock,bufferText,strlen(bufferText)+1);
-           char dummy[100];
-           n = read(sock,dummy,strlen(dummy)+1);
-           n = write(sock,hashTable[key],size+1);
-           printf("%s\n",hashTable[key]);
+           //int size = strlen(hashTable[key]);
+           //snprintf(bufferText, sizeof(bufferText), "%d\n",size);
+           //\\printf("%s\n",bufferText);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
+           //char dummy[100];
+           // pthread_mutex_lock(&MapDelMutex);
+           // size_t length = strlen(hashTable.find(key)->second);
+           // char *value = (char *)malloc((length +1)*sizeof(char));
+           // bzero(value,length+1);
+           // strcpy(value,hashTable.find(key)->second);
+           // pthread_mutex_lock(&MapDelMutex);
+           // \\printf("text: %s size : %d\n",hashTable[key],size);
+           // \\snprintf(bufferText,sizeof(bufferText),"Your text : %s\n",hashTable[key]);
+           //pthread_mutex_unlock(&MapDelMutex);
+           //n = read(sock,dummy,strlen(dummy)+1);
+           n = write(sock,value,strlen(value)+1);
+           free(value);
+
+           //\\printf("%s\n",hashTable[key]);
        }
+       //printf("send: %s\n",bufferText);
+       if(!present)
+          n = write(sock,bufferText,strlen(bufferText)+1);
+
+       for(i=0;tokens[i]!=NULL;i++){
+            // printf("%s\n",tokens[i]);
+            free(tokens[i]);
+       }
+       free(tokens);
+       free(command);
+       free(buffer);
    }
 
    //******************* All data base modification is done *********************//
-   void modifyInstruction(char buffer[], int sock, int thread_id)
+   void modifyInstruction(char *buffer, int sock, int thread_id)
    {
        // commnon vars
        char bufferText[100000];
        int n;
+       char* command = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
+       bzero(command,MAX_INPUT_SIZE);
+       strcpy(command,buffer);
+       // \\printf("Command : %s\n",command);
+       command[strlen(command)] = '\n';
+       int i=0;
+       char **tokens=tokenize(command);
+       for(i=0;tokens[i]!=NULL;i++){
+            // \\printf("token[%d] : %s\n",i+1,tokens[i]);
+            // free(tokens[i]);
+       }
 
        // Choices start here ...............................
-       if(strncmp(buffer,"create",6)==0)
+       if(strncmp(command,"create",6)==0)
        {
            long long int key;
            int size;
+           key = atoi(tokens[1]);
+           size = atoi(tokens[2]);
+           // \\printf("key : %lld size : %d \n",key,size);
            bool present = false;
-           snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **CREATE** command\n", thread_id);
-           n = write(sock,bufferText,strlen(bufferText)+1);
-           bzero(buffer,256);
-           n = read(sock,buffer,255);
-           sscanf(buffer, "%lld", &key);
-           printf("%s size--->%d\n",buffer,n-1);
+           //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **CREATE** command\n", thread_id);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
+           //bzero(buffer,256);
+           //n = read(sock,buffer,255);
+           //sscanf(buffer, "%lld", &key);
+           //\\printf("%s size--->%d\n",buffer,n-1);
            if(bitmap.count(key)==0)
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
            else{
                snprintf(bufferText, sizeof(bufferText), "present\n");
                present = true;
            }
-           printf("%s\n",bufferText);
-           n = write(sock,bufferText,strlen(bufferText)+1);
+           //\\printf("%s\n",bufferText);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
 
            if(!present){
                // value size
-               bzero(buffer,256);
-               n = read(sock,buffer,255);
-               sscanf(buffer, "%d", &size);
-               printf("%s size--->%d\n",buffer,n-1);
-               snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
-               printf("%s\n",bufferText);
-               n = write(sock,bufferText,strlen(bufferText)+1);
+               //bzero(buffer,256);
+               //n = read(sock,buffer,255);
+               //sscanf(buffer, "%d", &size);
+               //\\printf("%s size--->%d\n",buffer,n-1);
+               //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
+               //\\printf("%s\n",bufferText);
+               //n = write(sock,bufferText,strlen(bufferText)+1);
 
-               int bytesRead = 0;
-               int bytesToRead =size+1;
-               int readThisTime;
-               char *buffer = (char *)malloc(bytesToRead*sizeof(char));
+               //int bytesRead = 0;
+               //int bytesToRead =size+1;
+               //int readThisTime;
+               //char *buffer = (char *)malloc(bytesToRead*sizeof(char));
 
-               while (bytesToRead != bytesRead)
-               {
-                   do
-                   {
-                        readThisTime = read(sock, buffer + bytesRead, (bytesToRead - bytesRead));
-                   }
-                   while(readThisTime == -1);
-
-                   if (readThisTime == -1)
-                   {
-                       /* Real error. Do something appropriate. */
-                       return;
-                   }
-                   bytesRead += readThisTime;
-               }
-               printf("Buffer :->%s\n",buffer);
-               snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
-               printf("%s\n",bufferText);
-               n = write(sock,bufferText,strlen(bufferText)+1);
-               hashTable[key] = buffer;
+               //while (bytesToRead != bytesRead)
+               // //{
+               //     do
+               //     {
+               //          readThisTime = read(sock, buffer + bytesRead, (bytesToRead - bytesRead));
+               //     }
+               //     while(readThisTime == -1);
+               //
+               //     if (readThisTime == -1)
+               //     {
+               //         /* Real error. Do something appropriate. */
+               //         return;
+               //     }
+               //     bytesRead += readThisTime;
+               // }
+               //\\printf("Buffer :->%s\n",buffer);
+               //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
+               //\\printf("%s\n",bufferText);
+               //n = write(sock,bufferText,strlen(bufferText)+1);
+               tokens[3][strlen(tokens[3])]='\0';
+               hashTable[key] = tokens[3];
+               //printf("hash : %s\n",hashTable[key]);
                bitmap[key] = 1;
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Ok: added\n", thread_id);
-               n = write(sock,bufferText,strlen(bufferText)+1);
+
            }
+           n = write(sock,bufferText,strlen(bufferText)+1);
        }
 
-       else if(strncmp(buffer,"update",6)==0)
+       else if(strncmp(command,"update",6)==0)
        {
            long long int key;
            int size;
+           key = atoi(tokens[1]);
+           size = atoi(tokens[2]);
            bool present = true;
-           snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **UPDATE** command\n", thread_id);
-           n = write(sock,bufferText,strlen(bufferText)+1);
-           bzero(buffer,256);
-           n = read(sock,buffer,255);
-           sscanf(buffer, "%lld", &key);
-           printf("%s size--->%d\n",buffer,n-1);
+           //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **UPDATE** command\n", thread_id);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
+           //bzero(buffer,256);
+           //n = read(sock,buffer,255);
+           //sscanf(buffer, "%lld", &key);
+           //\\printf("%s size--->%d\n",buffer,n-1);
            if(bitmap.count(key)==1)
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
            else{
                snprintf(bufferText, sizeof(bufferText), "not\n");
                present = false;
            }
-           printf("%s\n",bufferText);
-           n = write(sock,bufferText,strlen(bufferText)+1);
-
+           //\\printf("%s\n",bufferText);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
            if(present){
                // value size
-               bzero(buffer,256);
-               n = read(sock,buffer,255);
-               sscanf(buffer, "%d", &size);
-               printf("%s size--->%d\n",buffer,n-1);
-               snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
-               printf("%s\n",bufferText);
-               n = write(sock,bufferText,strlen(bufferText)+1);
+               //bzero(buffer,256);
+               //n = read(sock,buffer,255);
+               //sscanf(buffer, "%d", &size);
+               //\\printf("%s size--->%d\n",buffer,n-1);
+               //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
+               //\\printf("%s\n",bufferText);
+               //n = write(sock,bufferText,strlen(bufferText)+1);
 
-               int bytesRead = 0;
-               int bytesToRead =size+1;
-               int readThisTime;
-               char *buffer = (char *)malloc(bytesToRead*sizeof(char));
-
-               while (bytesToRead != bytesRead)
-               {
-                   do
-                   {
-                        readThisTime = read(sock, buffer + bytesRead, (bytesToRead - bytesRead));
-                   }
-                   while(readThisTime == -1);
-
-                   if (readThisTime == -1)
-                   {
-                       /* Real error. Do something appropriate. */
-                       return;
-                   }
-                   bytesRead += readThisTime;
-               }
-               printf("Buffer :->%s\n",buffer);
-               snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
-               printf("%s\n",bufferText);
-               n = write(sock,bufferText,strlen(bufferText)+1);
-               hashTable[key] = buffer;
+               // int bytesRead = 0;
+               // int bytesToRead =size+1;
+               // int readThisTime;
+               // char *buffer = (char *)malloc(bytesToRead*sizeof(char));
+               //
+               // while (bytesToRead != bytesRead)
+               // {
+               //     do
+               //     {
+               //          readThisTime = read(sock, buffer + bytesRead, (bytesToRead - bytesRead));
+               //     }
+               //     while(readThisTime == -1);
+               //
+               //     if (readThisTime == -1)
+               //     {
+               //         /* Real error. Do something appropriate. */
+               //         return;
+               //     }
+               //     bytesRead += readThisTime;
+               // }
+               // //\\printf("Buffer :->%s\n",buffer);
+               //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
+               //\\printf("%s\n",bufferText);
+               //n = write(sock,bufferText,strlen(bufferText)+1);
+               tokens[3][strlen(tokens[3])] = '\0';
+               //free(hashTable[key]);
+               hashTable[key] = tokens[3];
                bitmap[key] = 1;
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Ok: updated\n", thread_id);
-               n = write(sock,bufferText,strlen(bufferText)+1);
+
            }
+           n = write(sock,bufferText,strlen(bufferText)+1);
        }
 
-       else if(strncmp(buffer,"delete",6)==0)
+       else if(strncmp(command,"delete",6)==0)
        {
+           // pthread_mutex_lock(&MapDelMutex);
            long long int key;
+           key = atoi(tokens[1]);
            bool present = true;
-           snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **DELETE** command\n", thread_id);
-           n = write(sock,bufferText,strlen(bufferText)+1);
-           bzero(buffer,256);
-           n = read(sock,buffer,255);
-           sscanf(buffer, "%lld", &key);
-           printf("%s size--->%d\n",buffer,n-1);
+           //snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **DELETE** command\n", thread_id);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
+           //bzero(buffer,256);
+           //n = read(sock,buffer,255);
+           //sscanf(buffer, "%lld", &key);
+           //\\printf("%s size--->%d\n",buffer,n-1);
            if(bitmap.count(key)==1)
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Recieved **%s** \n", thread_id,buffer);
            else{
                snprintf(bufferText, sizeof(bufferText), "not\n");
                present = false;
            }
-           printf("%s\n",bufferText);
-           n = write(sock,bufferText,strlen(bufferText)+1);
+           //\\printf("%s\n",bufferText);
+           //n = write(sock,bufferText,strlen(bufferText)+1);
 
            if(present){
-               free(hashTable[key]);
+               //printf("hash: %s\n",hashTable[key]);
+
                hashTable.erase(key);
+               // pthread_mutex_unlock(&MapDelMutex);
+
                bitmap.erase(key);
                snprintf(bufferText, sizeof(bufferText), "FROM THREAD :%d Ok: Deleted\n", thread_id);
-               n = write(sock,bufferText,strlen(bufferText)+1);
+
            }
+           // \\printf("send: %s\n",bufferText);
+           n = write(sock,bufferText,strlen(bufferText)+1);
        }
 
+       for(i=0;tokens[i]!=NULL;i++){
+            // printf("%s\n",tokens[i]);
+            free(tokens[i]);
+       }
+       free(tokens);
+       free(command);
+       free(buffer);
    }
 
    // *****************  Locks and Unlocks Methods*********************/
@@ -417,9 +501,9 @@
        pthread_mutex_lock(&Pmutex); // mutex lock to access buffer
        while(writer_present || writer_waiting>0){
               // If buffer gets full time for producer to rest
-              printf("Thread %d goes to sleep: Reading\n",thread_id);
+              //\\printf("Thread %d goes to sleep: Reading\n",thread_id);
               pthread_cond_wait(&reader_can_enter, &Pmutex);
-              printf("Thread %d start executing again; Reading\n",thread_id);
+              //\\printf("Thread %d start executing again; Reading\n",thread_id);
        }
        readcount+=1;
        pthread_mutex_unlock(&Pmutex);
@@ -440,9 +524,9 @@
        writer_waiting+=1;
        while(writer_present || readcount>0){
               // If buffer gets full time for producer to rest
-              printf("Thread %d goes to sleep: Modifying\n",thread_id);
+              //\\printf("Thread %d goes to sleep: Modifying\n",thread_id);
               pthread_cond_wait(&writer_can_enter, &Pmutex);
-              printf("Thread %d start executing again; Modifying\n",thread_id);
+              //\\printf("Thread %d start executing again; Modifying\n",thread_id);
        }
        writer_waiting-=1;
        writer_present = true;
@@ -464,11 +548,19 @@
    //-------------- Query Processing --------------------------------//
    void doprocessing (int sock, int thread_id) {
          int n;
-         char buffer[256];
-         bzero(buffer,256);
+         char recvline[256];
+         bzero(recvline,256);
          int tokenCount = 0;
          while(1){
-             n = read(sock,buffer,255);
+             char *buffer = (char *)malloc(MAX_INPUT_SIZE*sizeof(char));
+             n = read(sock,recvline,100);
+             bzero(buffer,MAX_INPUT_SIZE);
+             strcpy(buffer,recvline);
+             //\\printf("Input RECEIVED : %s size: %d\n",buffer,n);
+             if(n<=0){
+                return;
+                //exit no reci=eiving
+              }
              tokenCount+=1;
              char bufferText[1024];
              //snprintf(bufferText, sizeof(bufferText), "I got your message from thread %d\n", thread_id);
@@ -485,7 +577,7 @@
                 break;
              }
 
-             printf("Thread_id :%d From Client :%d Here is the message: %s\n",thread_id,(int)(sock-3),buffer);
+             //\\printf("Thread_id :%d From Client :%d Here is the message: %s\n",thread_id,(int)(sock-3),buffer);
              //n = write(sock,bufferText,100);
              if(strncmp(buffer,"create",6)==0 || strncmp(buffer,"delete",6)==0 || strncmp(buffer,"update",6)==0)
              {
@@ -497,9 +589,14 @@
              else if(strncmp(buffer,"read",4)==0)
              {
                  readLock(thread_id);
+                 //writeLock(thread_id);
+                 // pthread_mutex_lock(&Pmutex);
                  readInstruction(buffer,sock,thread_id);
+                 // pthread_mutex_unlock(&Pmutex);
+                 //writeUnLock(thread_id);
                  readUnLock(thread_id);
              }
+
           }
           close(sock);
      }
@@ -531,9 +628,9 @@
      pthread_mutex_destroy(&mutex);	/* Free up the_mutex */
      pthread_cond_destroy(&condc);		/* Free up consumer condition variable */
      pthread_cond_destroy(&condp);		/* Free up producer condition variable */
-     printf("\n\n**************DONE CLEANING RESOURCES******************\n");
+     //\\printf("\n\n**************DONE CLEANING RESOURCES******************\n");
      pid_t pid = getpid();
-     printf("**************DONE COLLECTING THREADS******************\n");
+     //\\printf("**************DONE COLLECTING THREADS******************\n");
      kill(pid,SIGTERM);
    }
 
@@ -547,9 +644,9 @@
        pthread_mutex_lock(&mutex); // mutex lock to access buffer
        while(queue_count==MAXBUFFERSIZE){
               // If buffer gets full time for producer to rest
-              printf("Producer goes to sleep\n");
+              //\\printf("Producer goes to sleep\n");
               pthread_cond_wait(&condp, &mutex);
-              printf("Producer start executing\n");
+              //\\printf("Producer start executing\n");
        }
        pthread_mutex_unlock(&mutex);
        // // inserts the number in buffer
@@ -567,7 +664,7 @@
        pthread_mutex_lock(&mutex);
        insert(newsockfd);
 
-       printf("Producer: Written %d Current Buffer size %d\n",newsockfd,queue_count);
+       //\\printf("Producer: Written %d Current Buffer size %d\n",newsockfd,queue_count);
        //close(newsockfd);
        // broadcast signal for the consumer to print number
        // while(queue_count==2){
@@ -604,9 +701,9 @@
      while(1){
        pthread_mutex_lock(&mutex);
        while (queue_count==0){
-               printf("Thread %d goes to sleep\n",thread_id);
+               //\\printf("Thread %d goes to sleep\n",thread_id);
          pthread_cond_wait(&condc, &mutex);
-         printf("Thread %d starts executing\n",thread_id);
+         //\\printf("Thread %d starts executing\n",thread_id);
        }
        // if(written==MAXITERATIONS-1){
        //   pthread_cond_signal(&condp);
@@ -615,7 +712,7 @@
        //   break;
        // }
        newsockfd = release();
-       printf("Thread %d Consumed %d Current Buffer size %d\n",thread_id,newsockfd,queue_count);
+       // \\printf("Thread %d Consumed %d Current Buffer size %d\n",thread_id,newsockfd,queue_count);
        // doprocessing(newsockfd,thread_id); //{ when nothing works do this}
        pthread_cond_broadcast(&condc);
        pthread_cond_signal(&condp);
@@ -641,3 +738,32 @@
      }
      //pthread_exit(NULL);
    }
+
+   //
+    //tokenize the input string
+    char **tokenize(char *line)
+    {
+      char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
+      char *token = (char *)malloc(MAX_TOKEN_SIZE * sizeof(char));
+      int i, tokenIndex = 0, tokenNo = 0;
+
+      for(i =0; i < strlen(line); i++){
+
+        char readChar = line[i];
+
+        if (readChar == ' ' || readChar == '\n' || readChar == '\t'){
+          token[tokenIndex] = '\0';
+          if (tokenIndex != 0){
+    	tokens[tokenNo] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+    	strcpy(tokens[tokenNo++], token);
+    	tokenIndex = 0;
+          }
+        } else {
+          token[tokenIndex++] = readChar;
+        }
+      }
+
+      free(token);
+      tokens[tokenNo] = NULL ;
+      return tokens;
+    }
