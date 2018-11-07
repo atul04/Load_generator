@@ -13,10 +13,21 @@ Successfull Requests : 400194
 Throughput : 1333.000000
 Response Time 0.001254
 
+Thread 100 Time 300
+
 Thread 200 Time 300
 
 Total Requests Made : 12127826
 Successfull Requests : 672615
 Throughput : 2242.000000
 Response Time 0.007644
+
+Thread 400 Time 300
+
+Total Requests Made : 6074242
+Successfull Requests : 1123759
+Throughput : 3745.000000
+Response Time 0.035565
+
+Thread 800 Time 300
 

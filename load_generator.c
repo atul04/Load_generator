@@ -3,7 +3,7 @@
  * @Date:   2018-11-03T12:16:42+05:30
  * @Email:  atulsahay01@gmail.com
  * @Last modified by:   atul
- * @Last modified time: 2018-11-07T06:27:42+05:30
+ * @Last modified time: 2018-11-07T06:35:10+05:30
  */
 
  #include <sys/types.h>
@@ -80,13 +80,13 @@ char * createCommand(int *connectDuration)
       *connectDuration = 0;
       commandChoice = 1;
     }
-  while( commandChoice == 6 && (*connectDuration < 10)){
+  while( commandChoice == 6 && (*connectDuration < 8000)){
       //\\printf("Inwhilww\n");
       commandChoice = get_random(COMMAND_CHOICES)+1;
     }
   if(commandChoice == 1 && (*connectDuration > 0))
   {
-      while(commandChoice==1 && (*connectDuration<10))
+      while(commandChoice==1 && (*connectDuration<8000))
       {
           //\\printf("Here\n");
           commandChoice = get_random(COMMAND_CHOICES)+1;
@@ -222,17 +222,17 @@ void on_alarm(int signal) {
       alarm_period = atoi(argv[4]);
       // printf("%d %d \n",NThreads,alarm_period);
       //
-      int x = 0;
-      char *command;
-      int *connectDuration = (int *)malloc(sizeof(int));
-      *connectDuration = -1;
-      for(x = 0; x < 1000 ; x++)
-      {
-          command = createCommand(connectDuration);
-          printf("Command : %s\n",command);
-          free(command);
-      }
-      exit(1);
+      // int x = 0;
+      // char *command;
+      // int *connectDuration = (int *)malloc(sizeof(int));
+      // *connectDuration = -1;
+      // for(x = 0; x < 1000 ; x++)
+      // {
+      //     command = createCommand(connectDuration);
+      //     printf("Command : %s\n",command);
+      //     free(command);
+      // }
+      // exit(1);
 
 
       ////Particular Initialisation of key and random Command Choice with a value
